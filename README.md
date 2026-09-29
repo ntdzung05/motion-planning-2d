@@ -32,6 +32,22 @@ trees for each query. Each figure compares the two paths after shortcutting.
 
 The defaults are three queries and seed 4. Use `--queries 1` for a single query.
 
+### Example result
+
+Running `python demo.py --queries 1 --seed 4` produces a side-by-side comparison
+of the shortcut PRM and RRT paths:
+
+![Example PRM and RRT query](docs/images/example-query.png)
+
+Example console output:
+
+```text
+Built one PRM roadmap with 500 nodes for 1 queries (setup: 131.70 ms).
+Query 1: PRM 4.21 ms (path found); RRT 36.97 ms (path found).
+```
+
+Timing values vary by machine and run.
+
 To provide custom endpoints, pass four coordinates. They are checked by
 `Environment.query()`. Each supplied pair runs once.
 
