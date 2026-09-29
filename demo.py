@@ -85,9 +85,12 @@ def plan_rrt_query(env, start, goal, radius = 2.0, max_rep = 500):
     return list(rrt_path_trace), rrt_samples
 
 
-def main(num_queries = 3, seed = 4):
+def main(num_queries = 3, seed = 4, custom_queries = None):
     if num_queries < 1:
         raise ValueError("num_queries must be at least 1.")
+    custom_queries = [] if custom_queries is None else list(custom_queries)
+    if len(custom_queries) > num_queries:
+        raise ValueError("custom_queries cannot contain more entries than num_queries.")
 
     np.random.seed(seed)
     env = Environment(10, 6, 5)
@@ -100,9 +103,10 @@ def main(num_queries = 3, seed = 4):
 
     plotted_queries = 0
     for query_index in range(num_queries):
-        query = env.random_query()
+        endpoints = custom_queries[query_index] if query_index < len(custom_queries) else None
+        query = env.random_query() if endpoints is None else env.query(*endpoints)
         if query is None:
-            print(f"Query {query_index + 1}: could not generate endpoints; skipped.")
+            print(f"Query {query_index + 1}: no valid endpoints; skipped.")
             continue
         x_start, y_start, x_goal, y_goal = query
         start, goal = (x_start, y_start), (x_goal, y_goal)
@@ -137,9 +141,15 @@ def main(num_queries = 3, seed = 4):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Compare PRM and RRT over one environment.")
-    parser.add_argument("--queries", type = int, default = 3, help="Number of random queries (default: 3).")
+    parser.add_argument("--queries", type = int, default = 3,
+                        help="Total queries; slots after custom queries use random endpoints (default: 3).")
     parser.add_argument("--seed", type = int, default = 4, help="Random seed (default: 4).")
+    parser.add_argument("--query", type=float, nargs=4, action="append",
+                        metavar=("X_START", "Y_START", "X_GOAL", "Y_GOAL"),
+                        help="Custom endpoints; repeat this option to run each supplied pair once.")
     args = parser.parse_args()
     if args.queries < 1:
         parser.error("--queries must be at least 1")
-    main(num_queries = args.queries, seed = args.seed)
+    if args.query and len(args.query) > args.queries:
+        parser.error("the number of --query options cannot exceed --queries")
+    main(num_queries = args.queries, seed = args.seed, custom_queries = args.query)

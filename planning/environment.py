@@ -116,6 +116,16 @@ class Environment(object):
     else:
       return None
 
+  def query(self, x_start, y_start, x_goal, y_goal):
+    if self.check_collision(x_start, y_start):
+      print("Start position is in collision")
+      return None
+    elif self.check_collision(x_goal, y_goal):
+      print("Goal position is in collision")
+      return None
+    else:
+      return x_start, y_start, x_goal, y_goal
+
   def plot(self):
     pl.plot([0, self.size_x, self.size_x, 0, 0], [0, 0, self.size_y, self.size_y, 0], "k", linewidth = 2)
     for ob in self.obs:
