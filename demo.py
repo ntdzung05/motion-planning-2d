@@ -1,3 +1,4 @@
+import argparse
 from collections import deque
 
 import numpy as np
@@ -33,28 +34,20 @@ def plot_path(env, path_trace, start, goal, *, title = "Path", samples = None, a
     return ax
 
 
-def main():
-    np.random.seed(4)
-    env = Environment(10, 6, 5)
-    query = env.random_query()
-    if query is None:
-        print("Could not generate a collision-free start and goal.")
-        return
-    x_start, y_start, x_goal, y_goal = query
-    start, goal = (x_start, y_start), (x_goal, y_goal)
+def plan_prm_query(graph, start, goal):
+    roadmap_size = graph.graph_size
+    try:
+        graph.add_node(*start)
+        graph.add_node(*goal)
+        return graph.bfs(start, goal)
+    finally:
+        while graph.graph_size > roadmap_size:
+            graph.remove_last_node()
 
-    graph = Graph(env, 500, 2.0)
-    graph.build_graph()
-    graph.add_node(*start)
-    graph.add_node(*goal)
-    prm_path_trace = graph.bfs(start, goal)
-    prm_path_trace = path_shortcutting(prm_path_trace, 1000, env)
-    graph.remove_last_node()
-    graph.remove_last_node()
 
-    rrt_start = RRT_Tree(env, *start, 2.0)
-    rrt_goal = RRT_Tree(env, *goal, 2.0)
-    max_rep = 500
+def plan_rrt_query(env, start, goal, radius = 2.0, max_rep = 500):
+    rrt_start = RRT_Tree(env, *start, radius)
+    rrt_goal = RRT_Tree(env, *goal, radius)
     mid_start = None
     mid_goal = None
 
@@ -64,14 +57,14 @@ def main():
 
         nearest_node = rrt_start.find_nearest(x_rand, y_rand)
         if rrt_start.match_node(nearest_node, x_rand, y_rand):
-            mid_goal = rrt_goal.scan_node(rrt_start.nodes[-1], 2)
+            mid_goal = rrt_goal.scan_node(rrt_start.nodes[-1], radius)
             if mid_goal is not None:
                 mid_start = rrt_start.nodes[-1]
                 break
 
         nearest_node = rrt_goal.find_nearest(x_rand, y_rand)
         if rrt_goal.match_node(nearest_node, x_rand, y_rand):
-            mid_start = rrt_start.scan_node(rrt_goal.nodes[-1], 2)
+            mid_start = rrt_start.scan_node(rrt_goal.nodes[-1], radius)
             if mid_start is not None:
                 mid_goal = rrt_goal.nodes[-1]
                 break
@@ -87,17 +80,57 @@ def main():
         rrt_path_trace.appendleft(start)
         rrt_path_trace.append(goal)
 
-    rrt_path_trace = path_shortcutting(list(rrt_path_trace), 1000, env)
-
-    figure, axes = pl.subplots(1, 2, figsize=(12, 5))
-    plot_path(env, prm_path_trace, start, goal, title = "PRM",
-              samples=graph.G, ax=axes[0])
     rrt_samples = [(node.x, node.y) for node in rrt_start.nodes + rrt_goal.nodes]
-    plot_path(env, rrt_path_trace, start, goal, title = "RRT",
-              samples=rrt_samples, ax=axes[1])
-    figure.tight_layout()
-    pl.show()
+    return list(rrt_path_trace), rrt_samples
+
+
+def main(num_queries = 3, seed = 4):
+    if num_queries < 1:
+        raise ValueError("num_queries must be at least 1.")
+
+    np.random.seed(seed)
+    env = Environment(10, 6, 5)
+    graph = Graph(env, 500, 2.0)
+    graph.build_graph()
+    print(f"Built one PRM roadmap with {graph.graph_size} nodes for {num_queries} queries.")
+
+    plotted_queries = 0
+    for query_index in range(num_queries):
+        query = env.random_query()
+        if query is None:
+            print(f"Query {query_index + 1}: could not generate endpoints; skipped.")
+            continue
+        x_start, y_start, x_goal, y_goal = query
+        start, goal = (x_start, y_start), (x_goal, y_goal)
+
+        prm_path_trace = plan_prm_query(graph, start, goal)
+        prm_path_trace = path_shortcutting(prm_path_trace, 1000, env)
+
+        rrt_path_trace, rrt_samples = plan_rrt_query(env, start, goal)
+        rrt_path_trace = path_shortcutting(rrt_path_trace, 1000, env)
+
+        prm_status = "path found" if prm_path_trace else "no path found"
+        rrt_status = "path found" if rrt_path_trace else "no path found"
+        print(f"Query {query_index + 1}: PRM {prm_status}; RRT {rrt_status}.")
+
+        figure, axes = pl.subplots(1, 2, figsize=(12, 5))
+        figure.suptitle(f"Query {query_index + 1}/{num_queries}")
+        plot_path(env, prm_path_trace, start, goal, title="PRM",
+                  samples=graph.G, ax=axes[0])
+        plot_path(env, rrt_path_trace, start, goal, title="RRT",
+                  samples=rrt_samples, ax=axes[1])
+        figure.tight_layout()
+        plotted_queries += 1
+
+    if plotted_queries:
+        pl.show()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description = "Compare PRM and RRT over one environment.")
+    parser.add_argument("--queries", type = int, default = 3, help="Number of random queries (default: 3).")
+    parser.add_argument("--seed", type = int, default = 4, help="Random seed (default: 4).")
+    args = parser.parse_args()
+    if args.queries < 1:
+        parser.error("--queries must be at least 1")
+    main(num_queries = args.queries, seed = args.seed)

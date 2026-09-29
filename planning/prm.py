@@ -9,12 +9,17 @@ class Graph(object):
     self.adjList = []
     self.radius = radius
 
-    while len(self.G) < self.graph_size:
+    self.budget = 1000
+
+    while len(self.G) < self.graph_size and self.budget > 0:
       x = np.random.rand()*self.env.size_x
       y = np.random.rand()*self.env.size_y
       if not self.env.check_collision(x, y):
         self.G.append((x,y))
         self.adjList.append([])
+      self.budget -= 1
+
+    self.graph_size = len(self.G)
 
   def build_graph(self): #undirected
     for startNode in range(self.graph_size):
@@ -42,7 +47,9 @@ class Graph(object):
         self.adjList[self.graph_size - 1].append(node)
 
   def remove_last_node(self):
-    node = self.G.index(self.G[-1])
+    if self.graph_size == 0:
+      return
+    node = len(self.G) - 1
     for othernode in self.adjList[node]:
       self.adjList[othernode].remove(node)
     self.adjList.pop(node)
