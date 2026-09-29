@@ -123,7 +123,7 @@ class Environment(object):
     elif self.check_collision(x_goal, y_goal):
       print("Goal position is in collision")
       return None
-    elif x.start < 0 or x_start > self.size_x or y_start < 0 or y_start > self.size_y:
+    elif x_start < 0 or x_start > self.size_x or y_start < 0 or y_start > self.size_y:
       print("Start position is out of bounds")
       return None
     elif x_goal < 0 or x_goal > self.size_x or y_goal < 0 or y_goal > self.size_y:
