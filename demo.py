@@ -1,5 +1,6 @@
 import argparse
 from collections import deque
+from time import perf_counter
 
 import numpy as np
 import pylab as pl
@@ -90,9 +91,12 @@ def main(num_queries = 3, seed = 4):
 
     np.random.seed(seed)
     env = Environment(10, 6, 5)
+    started = perf_counter()
     graph = Graph(env, 500, 2.0)
     graph.build_graph()
-    print(f"Built one PRM roadmap with {graph.graph_size} nodes for {num_queries} queries.")
+    setup_time = perf_counter() - started
+    print(f"Built one PRM roadmap with {graph.graph_size} nodes for {num_queries} queries "
+          f"(setup: {setup_time * 1000:.2f} ms).")
 
     plotted_queries = 0
     for query_index in range(num_queries):
@@ -103,15 +107,20 @@ def main(num_queries = 3, seed = 4):
         x_start, y_start, x_goal, y_goal = query
         start, goal = (x_start, y_start), (x_goal, y_goal)
 
+        started = perf_counter()
         prm_path_trace = plan_prm_query(graph, start, goal)
+        prm_time = perf_counter() - started
         prm_path_trace = path_shortcutting(prm_path_trace, 1000, env)
 
+        started = perf_counter()
         rrt_path_trace, rrt_samples = plan_rrt_query(env, start, goal)
+        rrt_time = perf_counter() - started
         rrt_path_trace = path_shortcutting(rrt_path_trace, 1000, env)
 
         prm_status = "path found" if prm_path_trace else "no path found"
         rrt_status = "path found" if rrt_path_trace else "no path found"
-        print(f"Query {query_index + 1}: PRM {prm_status}; RRT {rrt_status}.")
+        print(f"Query {query_index + 1}: PRM {prm_time * 1000:.2f} ms ({prm_status}); "
+              f"RRT {rrt_time * 1000:.2f} ms ({rrt_status}).")
 
         figure, axes = pl.subplots(1, 2, figsize=(12, 5))
         figure.suptitle(f"Query {query_index + 1}/{num_queries}")
